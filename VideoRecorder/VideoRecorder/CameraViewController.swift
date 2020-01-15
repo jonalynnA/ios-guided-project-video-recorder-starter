@@ -7,9 +7,12 @@
 //
 
 import UIKit
+import AVFoundation
 
 class CameraViewController: UIViewController {
 
+    lazy private var captureSession = AVCaptureSession()
+    
     @IBOutlet var recordButton: UIButton!
     @IBOutlet var cameraView: CameraPreviewView!
 
@@ -19,13 +22,60 @@ class CameraViewController: UIViewController {
 
 		// Resize camera preview to fill the entire screen
 		cameraView.videoPlayerView.videoGravity = .resizeAspectFill
+        
+        setUpCamera()
 	}
 
+    override func viewDidAppear(_ animated: Bool) {
+        super.viewDidAppear(animated)
+        captureSession.startRunning()
+    }
 
+    override func viewDidDisappear(_ animated: Bool) {
+        super.viewDidDisappear(animated)
+        captureSession.stopRunning()
+    }
+    
     @IBAction func recordButtonPressed(_ sender: Any) {
 
 	}
+    
+    // MARK: Methods
+    
+    func setUpCamera() {
+        let camera = bestCamera()
+        captureSession.beginConfiguration()
+        // make changes to the devices connected
+        // Video input
+        guard let cameraInput = try? AVCaptureDeviceInput(device: camera) else {
+            fatalError("Cannot create camera input")
+        }
+        guard captureSession.canAddInput(cameraInput) else {
+            fatalError("Cannot add camera input to session")
+        }
+        captureSession.addInput(cameraInput)
+        if captureSession.canSetSessionPreset(.hd1920x1080) {
+            captureSession.canSetSessionPreset(.hd1920x1080)
+        }
+        // TODO: Audio input
+        // TODO: Video output (movie)
+        captureSession.commitConfiguration()
+        cameraView.session = captureSession
+    }
 	
+    // Wide Angle Lens (this is on every iphone device through 2019 )
+    // Try for UltraWide and use wide angle for fallback
+    private func bestCamera() -> AVCaptureDevice {
+        if let device = AVCaptureDevice.default(.builtInUltraWideCamera, for: .video, position: .back) {
+            return device
+        }
+        if let device = AVCaptureDevice.default(.builtInWideAngleCamera, for: .video, position: .back) {
+            return device
+        }
+        
+        fatalError("No camera on the device. Or you are running on the Simulator (not supported")
+    }
+    
 	/// Creates a new file URL in the documents directory
 	private func newRecordingURL() -> URL {
 		let documentsDirectory = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first!
